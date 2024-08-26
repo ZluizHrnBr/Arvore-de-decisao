@@ -1,42 +1,56 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
-import graphviz
+from sklearn.tree import DecisionTreeClassifier, export_graphviz, plot_tree
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+import matplotlib.pyplot as plt
+
 
 # Carregando os dados do dataset do trabalho analisado
 dev_data = pd.read_csv('dataset.csv')
 
 # Seleção de características para a alocação de desenvolvedores em projetos
-X = dev_data[['followers', 'NoC', 'DiP']]
-y = dev_data['project']
+label = LabelEncoder()
 
-# Divisão dos dados para treinamento
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+dev_data['job_number'] = label.fit_transform(dev_data['job'])
 
-# Criando um modelo de árvore de decisão para o treinamento dos dados
-clf = DecisionTreeClassifier(max_depth=5, random_state=42)
+X = dev_data[['job_number', 'NoC', 'DiP', 'followers', 'ICT']]
 
-# Treinamento do modelo de dados
-fit = clf.fit(X_train, y_train)
-# Previsão dos dados para teste
-y_pred = clf.predict(X_test)
-#Gerando uma árvore de decisão após o fit
-dot_data = export_graphviz(fit, filled=True, out_file=None)
-graph = graphviz.Source(dot_data)
+y = dev_data[['project']]
 
-# Avaliação do modelo feito com a precisão do modelo
-accuracy = accuracy_score(y_test, y_pred)
-print(f'Precisão do modelo: {accuracy:.3f}')
-print(f'previsão para a alocação de recursos {y_pred}')
+transformer_numeric = SimpleImputer(strategy='constant')
+categorical_transformer = Pipeline(steps=[
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
 
-# Matriz de confusão após o treinamento e a predição dos dados
-conf_m = confusion_matrix(y_test, y_pred)
-print('Matriz de confusão')
-print(conf_m)
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('cat', categorical_transformer, [0]),
+        ('dog', categorical_transformer, [1])])
 
-#Amostragem dos dados obtidos após a predição e o treinamento dos dado utilizados pelos datasets
-plt.imshow(conf_m, interpolation='nearest')
-plt.title('Matriz de confusão')
+clf = Pipeline(steps=[
+    ('classifier', DecisionTreeClassifier(random_state=42))
+])
+
+
+X_train, X_test, y_train, y_test  = train_test_split(X, y, test_size=0.2, random_state=42)
+
+fit = clf.fit(X, y)
+tree = clf.named_steps['classifier']
+
+
+predict = clf.predict(X)
+accuracy = clf.score(X_test, y_test)
+print(f'Acuracia: {accuracy:.3f}')
+print(tree)
+predict = clf.predict(X)
+print(predict)
+
+plt.figure(figsize=(50, 40))
+plot_tree(tree, filled=True, rounded=True)
+plt.title("Árvore de Decisão")
 plt.show()
